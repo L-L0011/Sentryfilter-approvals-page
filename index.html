@@ -717,9 +717,10 @@ function load() {
 
 // fromLink reads the household from "#h=" + base64url(JSON): what Sentry's
 // Settings puts in the link and the QR code. Anyone can make a link, so
-// every part is checked, and it is only ever shown as text.
+// every part is checked, and it is only ever shown as text. A link in a
+// request email also has "&n=" and the request number (see linkNumber).
 function fromLink() {
-  const m = /^#h=([A-Za-z0-9_-]{10,3000})$/.exec(location.hash);
+  const m = /^#h=([A-Za-z0-9_-]{10,3000})(?:&n=[0-9-]{11,20}(?:&p=[01])?)?$/.exec(location.hash);
   if (!m) return null;
   try {
     let b = m[1].replace(/-/g, '+').replace(/_/g, '/');
@@ -740,6 +741,17 @@ function fromLink() {
   } catch (e) {
     return null;
   }
+}
+
+// linkNumber is the request number from a request email's link ("" if
+// none); linkPerson who it asks to say yes (-1 if not said).
+function linkNumber() {
+  const m = /&n=([0-9-]{11,20})(?:&p=[01])?$/.exec(location.hash);
+  return m ? m[1] : '';
+}
+function linkPerson() {
+  const m = /&n=[0-9-]{11,20}&p=([01])$/.exec(location.hash);
+  return m ? +m[1] : -1;
 }
 
 function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
@@ -811,6 +823,12 @@ if (ONLINE) {
   $('tip').hidden = !HH || home;
   // A new link (the half was changed, or another household): read it again.
   window.addEventListener('hashchange', () => location.reload());
+}
+if (HH && linkNumber()) {
+  // From a request email: the number is filled in, and says what it asks for.
+  form.number.value = linkNumber();
+  form.number.dispatchEvent(new Event('input'));
+  if (linkPerson() >= 0) form.person.value = String(linkPerson());
 }
 if (HH) {
   if (HH.names && HH.names[0] && HH.names[1]) { $('name0').textContent = HH.names[0]; $('name1').textContent = HH.names[1]; }
